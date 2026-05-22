@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gyroscope Rotation Demo</title>
+
+<style>
+    body{
+        margin:0;
+        background:#111;
+        color:white;
+        font-family:Arial,sans-serif;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        min-height:100vh;
+        text-align:center;
+    }
+
+    .app{
+        width:95%;
+        max-width:500px;
+    }
+
+    h1{
+        margin-bottom:20px;
+    }
+
+    .angle{
+        font-size:64px;
+        font-weight:bold;
+        color:#00ff99;
+        margin:20px 0;
+    }
+
+    .phone{
+        width:120px;
+        height:220px;
+        border:6px solid white;
+        border-radius:24px;
+        margin:40px auto;
+        transition:transform 0.05s linear;
+        background:#222;
+    }
+
+    button{
+        padding:14px 24px;
+        border:none;
+        border-radius:12px;
+        background:#00aa88;
+        color:white;
+        font-size:18px;
+        cursor:pointer;
+    }
+
+    button:hover{
+        background:#00ccaa;
+    }
+
+    .status{
+        margin-top:20px;
+        color:#aaa;
+        line-height:1.5;
+    }
+
+    .debug{
+        margin-top:20px;
+        background:#1d1d1d;
+        padding:15px;
+        border-radius:12px;
+        text-align:left;
+        font-size:14px;
+        color:#ccc;
+    }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+    <h1>Phone Left ↔ Right Rotation</h1>
+
+    <button id="enableBtn">Enable Gyroscope</button>
+
+    <div class="angle" id="angle">0°</div>
+
+    <div id="direction">Waiting...</div>
+
+    <div class="phone" id="phone"></div>
+
+    <div class="status" id="status">
+        Press the button and rotate your phone.
+    </div>
+
+    <div class="debug" id="debug">
+        Debug info...
+    </div>
+
+</div>
+
+<script>
+
+const angleEl = document.getElementById('angle');
+const directionEl = document.getElementById('direction');
+const statusEl = document.getElementById('status');
+const debugEl = document.getElementById('debug');
+const phoneEl = document.getElementById('phone');
+const btn = document.getElementById('enableBtn');
+
+let gotData = false;
+
+function debug(msg){
+    debugEl.innerHTML += "<br>" + msg;
+}
+
+function updateUI(gamma){
+
+    gamma = Math.max(-90, Math.min(90, gamma));
+
+    angleEl.textContent = gamma.toFixed(1) + "°";
+
+    phoneEl.style.transform = `rotate(${gamma}deg)`;
+
+    if(gamma > 5){
+        directionEl.textContent = "RIGHT";
+    }
+    else if(gamma < -5){
+        directionEl.textContent = "LEFT";
+    }
+    else{
+        directionEl.textContent = "CENTER";
+    }
+}
+
+function orientationHandler(event){
+
+    gotData = true;
+
+    debugEl.innerHTML =
+        "alpha: " + event.alpha + "<br>" +
+        "beta: " + event.beta + "<br>" +
+        "gamma: " + event.gamma;
+
+    if(event.gamma !== null){
+        updateUI(event.gamma);
+    }
+}
+
+async function startGyroscope(){
+
+    debugEl.innerHTML = "";
+
+    // HTTPS check
+    if(location.protocol !== 'https:' && location.hostname !== 'localhost'){
+        statusEl.innerHTML =
+            "⚠️ Gyroscope usually requires HTTPS.<br>Use GitHub Pages, Vercel, Netlify, or localhost.";
+    }
+
+    // Check support
+    if(!window.DeviceOrientationEvent){
+        statusEl.textContent =
+            "❌ DeviceOrientation is not supported on this device/browser.";
+        return;
+    }
+
+    debug("DeviceOrientation supported");
+
+    // iPhone permission
+    if(typeof DeviceOrientationEvent.requestPermission === 'function'){
+
+        debug("iOS permission API detected");
+
+        try{
+
+            const permission =
+                await DeviceOrientationEvent.requestPermission();
+
+            debug("Permission result: " + permission);
+
+            if(permission === 'granted'){
+
+                window.addEventListener(
+                    'deviceorientation',
+                    orientationHandler
+                );
+
+                statusEl.textContent =
+                    "✅ Gyroscope enabled. Rotate your phone.";
+
+                btn.style.display = 'none';
+
+            }else{
+
+                statusEl.textContent =
+                    "❌ Permission denied.";
+
+            }
+
+        }catch(err){
+
+            statusEl.textContent =
+                "❌ Error requesting permission.";
+
+            debug(err);
+
+        }
+
+    }else{
+
+        // Android / normal browsers
+        debug("Non-iOS mode");
+
+        window.addEventListener(
+            'deviceorientation',
+            orientationHandler
+        );
+
+        statusEl.textContent =
+            "✅ Gyroscope enabled. Rotate your phone.";
+
+        btn.style.display = 'none';
+    }
+
+    // Detect no sensor data
+    setTimeout(() => {
+
+        if(!gotData){
+
+            statusEl.innerHTML =
+                "⚠️ No gyroscope data received.<br><br>" +
+                "Possible reasons:<br>" +
+                "- Desktop PC has no gyroscope<br>" +
+                "- Browser blocks sensors<br>" +
+                "- Page is not HTTPS<br>" +
+                "- Sensor permission denied";
+
+        }
+
+    }, 3000);
+}
+
+btn.addEventListener('click', startGyroscope);
+
+</script>
+
+</body>
+</html>
